@@ -5,12 +5,12 @@
 
 int main()
 {
-  const char string[] = { "This is a secret message don't tell my teacher Luciano Ost." };
+  const char string[] = { "Zelis gave me an idea" };
 	int length = (sizeof(string) / sizeof(string[0]))-1; // length of string without null termination
 	int size = (length % 8) ? ((length / 8) + 1) : (length / 8); // size of array required 
 
 	//uint64_t packet[size]; // store packed chars from string into 64-bit integer
-	uint64_t* packet = (uint64_t*)calloc(size , sizeof(*packet)); // dynamically allocate memory
+	uint64_t* packet = calloc(size , sizeof(*packet)); // dynamically allocate memory
 	uint64_t chars = 0; // individual chars which is 8-bits
 
 	for (size_t i = 0; i < size; ++i) // pack the string into integer array 
@@ -27,10 +27,10 @@ int main()
 	for (size_t i = 0; i < size; ++i)
 	{
 //		std::cout << i << "- " << packet[i] << "\n";
-		printf("%lu- %lu\n",i,packet[i]);
+		printf("%lu- %lu\n",i+1,packet[i]);
 	}
 
-	char* unpacked = (char*)calloc((size*8), sizeof(*unpacked)); // dynamically allocate memory 
+	char* unpacked = calloc((size*8), sizeof(*unpacked)); // dynamically allocate memory 
 	uint64_t extracter = 0xFF;// used for ANDing data
 	size_t index = 0;// index to store unpacked data 
 
