@@ -30,7 +30,7 @@ int main()
 		printf("%lu- %lu\n",i,packet[i]);
 	}
 
-	char* unpacked = (char*)calloc(((size*8) +1), sizeof(*unpacked)); // dynamically allocate memory 
+	char* unpacked = (char*)calloc((size*8), sizeof(*unpacked)); // dynamically allocate memory 
 	uint64_t extracter = 0xFF;// used for ANDing data
 	size_t index = 0;// index to store unpacked data 
 
