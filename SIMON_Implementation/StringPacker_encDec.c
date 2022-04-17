@@ -16,7 +16,7 @@ int main()
 
 void packer()
 {
-	const char string[] = { "1234567812345678123456781234567812345678" };
+	const char string[] = { "Let's meet at our secret location at x pm on Friday night." };
 	int length = (sizeof(string) / sizeof(string[0])) - 1; // length of string without null termination
 	int size = (length % 8) ? ((length / 8) + 1) : (length / 8); // size of array required 
 
@@ -64,8 +64,8 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 	uint64_t cipherText[2];
 	uint64_t decryptedText[2];
 	uint64_t text[2] = { 0,0 }; // data to be encrypted
-	uint64_t* unpacked_encrypted = calloc((size+1), sizeof(*unpacked_encrypted)); // dynamically allocate memory
-	uint64_t* unpacked_decrypted = calloc((size+1), sizeof(*unpacked_decrypted)); // dynamically allocate memory
+	uint64_t* unpacked_encrypted = calloc(size+1, sizeof(*unpacked_encrypted)); // dynamically allocate memory
+	uint64_t* unpacked_decrypted = calloc(size+1, sizeof(*unpacked_decrypted)); // dynamically allocate memory
 
 	if (unpacked_encrypted == NULL)
 	{
@@ -124,7 +124,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 			}
 			printf("\n");
 
-			unpacker(2, cipherText);
+			//unpacker(2, cipherText);
 
 
 			printf("decrypted text: \t\t");
@@ -136,7 +136,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 
 			unpacker(2, decryptedText);
 		}
-		unpacker(size, unpacked_encrypted);
+		//unpacker(size, unpacked_encrypted);
 		unpacker(size, unpacked_decrypted);
 	}
 	else if (size < 2) // if size is than 2 
@@ -170,7 +170,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 		}
 		printf("\n");
 
-		unpacker(2, cipherText);
+		//unpacker(2, cipherText);
 
 
 		printf("decrypted text: \t\t");
@@ -225,7 +225,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 			}
 			printf("\n");
 
-			unpacker(2, cipherText);
+			//unpacker(2, cipherText);
 
 
 			printf("decrypted text: \t\t");
@@ -248,12 +248,12 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 				SIMON_encrypt(&context, text, cipherText);
 				
 				unpacked_encrypted[i+2] = cipherText[0];
-				unpacked_encrypted[i + 3] = cipherText[1];
+				//unpacked_encrypted[i + 3] = cipherText[1];
 
 				SIMON_decrypt(&context, cipherText, decryptedText);
 
 				unpacked_decrypted[i+2] = decryptedText[0];
-				unpacked_decrypted[i + 3] = decryptedText[1];
+				//unpacked_decrypted[i + 3] = decryptedText[1];
 
 
 				printf("key: \t\t\t\t");
@@ -278,7 +278,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 				}
 				printf("\n");
 
-				unpacker(2, cipherText);
+				//unpacker(2, cipherText);
 
 
 				printf("decrypted text: \t\t");
@@ -292,8 +292,8 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 				break; // break out of the for loop 
 			}
 		}
-		unpacker(size + 1, unpacked_encrypted);
-		unpacker(size+1, unpacked_decrypted);
+		//unpacker(size, unpacked_encrypted);
+		unpacker(size, unpacked_decrypted);
 	}
 
 	free(unpacked_encrypted); // release the dynamically allocated memory
@@ -303,7 +303,7 @@ void Simon_begin(int size,uint64_t* packet,uint64_t* key,int key_length)
 void unpacker(int size,uint64_t* packet)
 {
 	char* unpacked = calloc(((size * 8)+1), sizeof(*unpacked)); // dynamically allocate memory
-	uint64_t extracter = 0xFF;// used for ANDing data
+	uint64_t extracter = 0xFFu;// used for ANDing data
 	uint64_t chars = 0; // individual chars which is 8-bits
 	size_t index = 0;// index to store unpacked data 
 
@@ -319,4 +319,5 @@ void unpacker(int size,uint64_t* packet)
 	//	std::cout << "Unpacked data: '" << unpacked<<"'\n";
 	printf("Unpacked data:\t\t\t'%s'\n\n", unpacked); // print the unpacked integer 
 
-	f
+	free(unpacked); // release dynamically allocated memory
+}
