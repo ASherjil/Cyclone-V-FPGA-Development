@@ -29,6 +29,7 @@ signal i_sub : integer := 2; -- index for subkeys
 
 type t_key_64bit is array(0 to 2) of unsigned(63 downto 0);
 signal key_64bit : t_key_64bit; -- array of 2 length for storing 2 keys 64-bit long
+signal seq1 : integer := 0; -- used to force sequential run for R2 procedure 
 --signal sub_key_first : unsigned(31 downto 0);
 --signal sub_key_second : unsigned(31 downto 0);
 
@@ -36,11 +37,14 @@ signal key_64bit : t_key_64bit; -- array of 2 length for storing 2 keys 64-bit l
 type t_data_in is array (0 to 1) of unsigned(63 downto 0);
 signal data_input : t_data_in; -- data to be encrypted 
 signal i : integer := 0;
+signal flag1 : std_logic := '0';
+--signal x : unsigned(63 downto 0);
+--signal y : unsigned(63 downto 0);
 --signal data1 : unsigned(31 downto 0);
 --signal data2 : unsigned(31 downto 0);
 ----------------------------------------------------------------------------------------
 type t_state is (s0,s1,s2,s3);
-signal state : t_state;
+--signal state : t_state;
 --------------------------------------------------------FUNCITON and PROCEDURES
 
 function ROR_64(x : in unsigned(63 downto 0); n : in integer)-- Rotate Right circular shift 32 bits
@@ -202,6 +206,7 @@ data_in : process(clk,data_valid) is --  take in text to encrypt
 					when 2=>data1 := unsigned(data_word_in);
 					when 3=>data2 := unsigned(data_word_in);
 						data_input(1) <=  unsigned(data2) & unsigned(data1); -- store data in 64bit
+						flag1 <= '1';
 					when others=>
 						null; -- do nothing 
 				end case;
@@ -210,28 +215,52 @@ data_in : process(clk,data_valid) is --  take in text to encrypt
 			
 		end process data_in;
 		
-		
+
+
 encryption_init: process(clk,reset_n) is 
-				variable j : integer := 0; -- intermediate variable for while loop
-				variable i : integer := 0; -- variable for outputting datas
-				variable subkeys_init : t_subkeys;
-			begin 
-				if rising_edge(clk) then 
+				variable j : integer := 0; -- intermediate variable for loop implementation 
+				variable x : unsigned(63 downto 0);
+				variable y : unsigned(63 downto 0);
+			begin	
 				
+				
+				if rising_edge(clk) then 
+									
 					if reset_n = '0' then 
 					-- enter code here
-					
+				
 					elsif reset_n = '1' then 
 						
-						if (data_valid = '0' and encryption = '1') then --data_valid == 0 means that data is transferred
+						if (data_valid = '0' and encryption = '1' and flag1 = '1') then --data_valid == 0 means that data is transferred
 								
 							if key_length = "00" then -- key length is 128-bit
 							
-								while j < nrSubkeys loop -- same as : for (i = 0; i < nrSubkeys; i += 2)
-									--	R2(subkeys_inti(j),subkeys_inti(j+1),data_input(0),data_input(1),j);	
-										j := j+2; -- j += 2;
-								end loop;							
-								data_ready <= '1';
+								if j < nrSubkeys then -- same as : for (i = 0; i < nrSubkeys; i += 2)
+								
+									if (seq1 > 3) then 
+										seq1 <= 0;
+									else
+										seq1 <= seq1 +1;
+									end if;
+									
+										case seq1 is --R2(subkeys(j),subkeys(j+1),data_input(0),data_input(1));
+											when 0=>
+												y := data_input(1) xor f(data_input(0)) ; -- call f function
+											when 1 =>
+												y := y xor subkeys(j);
+											when 2 =>
+												x := data_input(0) xor f(data_input(1)); -- call f function
+											when 3 =>
+												x := x xor subkeys(j+1);
+												j := j+2; -- j += 2;
+											
+											when others=>
+												null; -- do nothing 
+										end case;
+									
+								else -- nrSubkeys  == 67
+									data_ready <= '1';
+								end if; -- close if statement for j < nrSubkeys 
 								
 							elsif key_length = "01" then -- key length is 192-bit
 							
