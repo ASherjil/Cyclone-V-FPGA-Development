@@ -285,7 +285,6 @@ encryption_init: process(clk,reset_n) is
 													null; -- do nothing 
 											end case;
 									else -- for loop from i=0 till (i<nrSubkeys-1) has finished 
-										
 											
 											case seq1 is 
 												when 0=> 
@@ -303,7 +302,18 @@ encryption_init: process(clk,reset_n) is
 												when 4 =>
 													y := t;
 													data_ready <= '1';
-													
+													seq1 <= 5;
+												when 5 =>
+													data_word_out <= std_logic_vector(x(31 downto 0));
+													seq1 <= 6;
+												when 6=>
+													data_word_out <= std_logic_vector(x(63 downto 32));
+													seq1 <= 7;
+												when 7=>
+													data_word_out <= std_logic_vector(y(31 downto 0));
+													seq1 <= 8;
+												when 8=>
+													data_word_out <= std_logic_vector(y(63 downto 32));												
 												when others=>
 													null;
 											end case;
