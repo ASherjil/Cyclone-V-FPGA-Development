@@ -25,7 +25,7 @@ signal nrSubkeys : integer;
 --------------------------------------Intermediate signals and array for initialisation 
 type t_subkeys is array(0 to 71) of unsigned(63 downto 0);	
 signal subkeys : t_subkeys;
-signal i_sub : integer := 2; -- index for subkeys
+
 
 type t_key_64bit is array(0 to 2) of unsigned(63 downto 0);
 signal key_64bit : t_key_64bit; -- array of 2 length for storing 2 keys 64-bit long
@@ -36,6 +36,7 @@ signal seq1 : integer := 0; -- used to force sequential run for R2 procedure
 
 type t_data_in is array (0 to 1) of unsigned(63 downto 0);
 signal data_input : t_data_in; -- data to be encrypted 
+signal k : integer := 3;
 signal i : integer := 0;
 signal flag1 : std_logic := '0';
 --signal x : unsigned(63 downto 0);
@@ -77,12 +78,11 @@ begin
 			x <= x xor l;
 end R2;			
 -----------------------------------------------------------------------------
---signal i : integer:=0;
 begin
 	
 
 key_in:	process(clk,key_valid) is -- process to take in key 
-		variable i: integer := 0;
+		variable j: integer := 0;
 		variable sub_key_first : unsigned(31 downto 0) := (others=> '0');
 		variable sub_key_second : unsigned(31 downto 0) := (others=> '0');
 	begin
@@ -90,11 +90,11 @@ key_in:	process(clk,key_valid) is -- process to take in key
 		
 		if (rising_edge(clk) and key_valid = '1') then -- only begin if key_valid = '1'
 			
-				if i = 6 then -- reset i signal 
-					i := 0;
+				if j = 6 then -- reset i signal 
+					j := 0;
 				end if;
 				
-				case i is 
+				case j is 
 					
 					when 0 =>sub_key_first := unsigned(key_word_in);
 					when 1 => -- store into the first element of the array 
@@ -117,7 +117,7 @@ key_in:	process(clk,key_valid) is -- process to take in key
 					
 				end case;
 	
-				i := i+1;-- increment 
+				j := j+1;-- increment 
 		end if;-- if for rising_edge clock 
 	end process key_in;
 	
@@ -126,9 +126,7 @@ init:process(clk,reset_n) is -- initialisation process
 	
 		variable c : unsigned(63 downto 0):= x"fffffffffffffffc"; 
 		variable z : unsigned(63 downto 0);
-		--variable i : unsigned(63 downto 0);
-		variable one : unsigned(63 downto 0):= B"0000000000000000000000000000000000000000000000000000000000000001";
-		
+		variable one : unsigned(63 downto 0):= B"0000000000000000000000000000000000000000000000000000000000000001";		
 	begin 
 	
 			if rising_edge(clk) then -- begin on the rising edge of the clock 
@@ -151,7 +149,6 @@ init:process(clk,reset_n) is -- initialisation process
 							for i in 2 to 66 loop
 								subkeys(i) <= (c xor (z and one) xor subkeys(i-2) xor ROR_64(subkeys(i-1),3) xor ROR_64(subkeys(i-1),4));
 								z:= shift_right(z,1);
-								--i_sub <= i_sub +1;
 							end loop;
 							
 							subkeys(66) <= (c xor one xor subkeys(64) xor ROR_64(subkeys(65),3) xor ROR_64(subkeys(65),4));
@@ -165,14 +162,12 @@ init:process(clk,reset_n) is -- initialisation process
 							subkeys(0) <= key_64bit(2);
 							subkeys(1) <= key_64bit(1);
 							subkeys(2) <= key_64bit(0);
-							
-							--for i in 3 to 67 loop
-							if ((i_sub+1) < 67) then
-								subkeys(i_sub+1) <= (c xor (z and one) xor subkeys((i_sub+1)-2) xor ROR_64(subkeys((i_sub+1)-1),3) xor ROR_64(subkeys((i_sub+1)-1),4) );
+								
+							for i in 3 to 67 loop
+								subkeys(i) <= (c xor (z and one) xor subkeys(i-3) xor ROR_64(subkeys(i-1),3) xor ROR_64(subkeys(i-1),4) );
 								z:= shift_right(z,1);
-							end if;
-							--end loop;
-							
+							end loop;
+						
 							subkeys(67) <=	(c xor subkeys(64) xor ROR_64(subkeys(66), 3) xor ROR_64(subkeys(66), 4) );
 							subkeys(68) <= (c xor one xor subkeys(65) xor ROR_64(subkeys(66),3) xor ROR_64(subkeys(66),4) );
 							
@@ -188,7 +183,6 @@ init:process(clk,reset_n) is -- initialisation process
 	
 	
 data_in : process(clk,data_valid) is --  take in text to encrypt 
-			--variable i: integer;
 			variable data1 : unsigned(31 downto 0);
 			variable data2 : unsigned(31 downto 0);
 		begin 
@@ -213,7 +207,7 @@ data_in : process(clk,data_valid) is --  take in text to encrypt
 				i <= i+1;-- increment 
 			end if;
 			
-		end process data_in;
+end process data_in;
 		
 
 
@@ -221,6 +215,7 @@ encryption_init: process(clk,reset_n) is
 				variable j : integer := 0; -- intermediate variable for loop implementation 
 				variable x : unsigned(63 downto 0);
 				variable y : unsigned(63 downto 0);
+				variable t : unsigned(63 downto 0);
 			begin	
 				
 				
@@ -237,11 +232,11 @@ encryption_init: process(clk,reset_n) is
 							
 								if j < nrSubkeys then -- same as : for (i = 0; i < nrSubkeys; i += 2)
 								
-									if (seq1 > 3) then 
+									if (seq1 > 3) then -- signal for state machine mechanism 
 										seq1 <= 0;
 									else
 										seq1 <= seq1 +1;
-									end if;
+									end if;-- close if statement for seq1 counter for state machine mechanism 
 									
 										case seq1 is --R2(subkeys(j),subkeys(j+1),data_input(0),data_input(1));
 											when 0=>
@@ -251,7 +246,7 @@ encryption_init: process(clk,reset_n) is
 											when 2 =>
 												x := data_input(0) xor f(data_input(1)); -- call f function
 											when 3 =>
-												x := x xor subkeys(j+1);
+												x := x xor subkeys(j+1); 
 												j := j+2; -- j += 2;
 											
 											when others=>
@@ -263,7 +258,58 @@ encryption_init: process(clk,reset_n) is
 								end if; -- close if statement for j < nrSubkeys 
 								
 							elsif key_length = "01" then -- key length is 192-bit
-							
+									
+									if (j < (nrSubkeys-1)) then
+									
+											if (seq1 > 3) then -- signal for state machine mechanism 
+												seq1 <= 0;
+											--else
+											--	seq1 <= seq1 +1;-- increment 
+											end if;-- close if statement for seq1 counter for state machine mechanism 
+									
+											case seq1 is --R2(subkeys(j),subkeys(j+1),data_input(0),data_input(1));
+												when 0=>
+													y := data_input(1) xor f(data_input(0)) ; -- call f function
+													seq1 <= 1;-- increment 
+												when 1 =>
+													y := y xor subkeys(j);
+													seq1 <= 2;-- increment 
+												when 2 =>
+													x := data_input(0) xor f(data_input(1)); -- call f function
+													seq1 <= 3;-- increment 
+												when 3 =>
+													x := x xor subkeys(j+1); 
+													j := j+2; -- j += 2;
+													seq1 <= 0;-- increment 
+												when others=>
+													null; -- do nothing 
+											end case;
+									else -- for loop from i=0 till (i<nrSubkeys-1) has finished 
+										
+											
+											case seq1 is 
+												when 0=> 
+													y := y xor f(x);
+													seq1 <= 1;
+												when 1=>
+													y := y xor subkeys(68);
+													seq1 <= 2;
+												when 2 =>
+													t := x;
+													seq1 <= 3;
+												when 3 =>
+													x := y;
+													seq1 <= 4;
+												when 4 =>
+													y := t;
+													data_ready <= '1';
+													
+												when others=>
+													null;
+											end case;
+											
+									end if; -- close if statement for j< nrSubkeys-1
+									
 							end if; -- close if statement for key length 
 							
 						end if; -- close if state for data valid and encryption 
@@ -271,6 +317,6 @@ encryption_init: process(clk,reset_n) is
 					end if; -- close if statement for reset_n
 					
 				end if; -- close if statement for rising edge clock 
-			end process encryption_init;
+end process encryption_init;
 		
 end architecture;
