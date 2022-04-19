@@ -30,6 +30,7 @@ signal subkeys : t_subkeys;
 type t_key_64bit is array(0 to 2) of unsigned(63 downto 0);
 signal key_64bit : t_key_64bit; -- array of 2 length for storing 2 keys 64-bit long
 signal seq1 : integer := 0; -- used to force sequential run for R2 procedure 
+signal control_flag1 : std_logic := '0';
 --signal sub_key_first : unsigned(31 downto 0);
 --signal sub_key_second : unsigned(31 downto 0);
 
@@ -169,7 +170,7 @@ init:process(clk,reset_n) is -- initialisation process
 							end loop;
 						
 							subkeys(67) <=	(c xor subkeys(64) xor ROR_64(subkeys(66), 3) xor ROR_64(subkeys(66), 4) );
-							subkeys(68) <= (c xor one xor subkeys(65) xor ROR_64(subkeys(66),3) xor ROR_64(subkeys(66),4) );
+							subkeys(68) <= (c xor one xor subkeys(65) xor ROR_64(subkeys(67),3) xor ROR_64(subkeys(67),4) );
 							
 						end if;
 				
@@ -261,11 +262,11 @@ encryption_init: process(clk,reset_n) is
 									
 									if (j < (nrSubkeys-1)) then
 									
-											if (seq1 > 3) then -- signal for state machine mechanism 
-												seq1 <= 0;
+											--if (seq1 > 3) then -- signal for state machine mechanism 
+											--	seq1 <= 0;
 											--else
 											--	seq1 <= seq1 +1;-- increment 
-											end if;-- close if statement for seq1 counter for state machine mechanism 
+											--end if;-- close if statement for seq1 counter for state machine mechanism 
 									
 											case seq1 is --R2(subkeys(j),subkeys(j+1),data_input(0),data_input(1));
 												when 0=>
@@ -275,17 +276,32 @@ encryption_init: process(clk,reset_n) is
 													y := y xor subkeys(j);
 													seq1 <= 2;-- increment 
 												when 2 =>
-													x := data_input(0) xor f(data_input(1)); -- call f function
+													x := data_input(0) xor f(y); -- call f function
 													seq1 <= 3;-- increment 
 												when 3 =>
 													x := x xor subkeys(j+1); 
 													j := j+2; -- j += 2;
-													seq1 <= 0;-- increment 
+													seq1 <= 4;-- increment 
+												when 4=>
+													y := y xor f(x) ; -- call f function
+													seq1 <= 5;-- increment 
+												when 5 =>
+													y := y xor subkeys(j);
+													seq1 <= 6;-- increment 
+												when 6 =>
+													x := x xor f(y); -- call f function
+													seq1 <= 7;-- increment 
+												when 7 =>
+													x := x xor subkeys(j+1); 
+													j := j+2; -- j += 2;
+													seq1 <= 4;-- increment but ONLY go back to case 4
+						
 												when others=>
 													null; -- do nothing 
 											end case;
 									else -- for loop from i=0 till (i<nrSubkeys-1) has finished 
 											
+										if control_flag1 = '1' then
 											case seq1 is 
 												when 0=> 
 													y := y xor f(x);
@@ -318,6 +334,11 @@ encryption_init: process(clk,reset_n) is
 													null;
 											end case;
 											
+										elsif control_flag1 = '0' then -- for the first run make 
+											control_flag1 <= '1';
+											seq1 <= 0;
+										end if; -- close if statement for control flag 
+										
 									end if; -- close if statement for j< nrSubkeys-1
 									
 							end if; -- close if statement for key length 
