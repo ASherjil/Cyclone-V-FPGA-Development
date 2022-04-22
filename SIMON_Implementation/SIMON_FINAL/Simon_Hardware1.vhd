@@ -110,7 +110,7 @@ end process write_proc;
 -- type   : combinational
 -- inputs : avs_s0_read, avs_s0_address
 -- outputs: avs_s0_readdata
-read_proc : process (avs_s0_read, avs_s0_address) is
+read_proc : process (avs_s0_read, avs_s0_address,data_ready,data_word_out) is
 begin  -- process read_proc
   if avs_s0_read = '1' then
     case avs_s0_address is
