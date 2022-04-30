@@ -22,13 +22,13 @@ architecture rtl of Simon_Hardware is
 signal reset_n 			 : std_logic;
 signal key_length 		 : std_logic_vector(1 downto 0); -- Set "00" to 128 bit, "01" to 192 bit, "10" to 256 bit
 signal key_valid 		 : std_logic; -- enable intialisation = '1', disable = '0'
-signal key_word_in 	 	 : std_logic_vector(31 downto 0); -- key for initialising the encyrption algorithm 
 signal data_valid        : std_logic;
 signal encryption 		 : std_logic;
-signal data_word_in 	 : std_logic_vector (31 downto 0);
 signal data_word_out 	 : std_logic_vector (31 downto 0);
 signal data_ready 		 : std_logic;
--------------------------------------Intermediate signals and arrays for Computations and Control 
+-------------------------------------Intermediate signals and arrays for Computations and Control
+ 
+-------------------------------------Key intialisation signals----------------------------------
 signal nrSubkeys : integer;
 type t_subkeys is array(0 to 71) of unsigned(63 downto 0);	
 signal subkeys : t_subkeys;
@@ -40,30 +40,33 @@ signal key32_2 : unsigned (31 downto 0);
 signal key32_3 : unsigned (31 downto 0);
 signal key32_4 : unsigned (31 downto 0);
 signal key32_5 : unsigned (31 downto 0);
-signal key32_6 : unsigned (31 downto 0);
+signal key32_6 : unsigned (31 downto 0);-- keys represented as 32-bit 
 
-signal seq0: integer := 0; -- intermediate signal used for implementing sequential design(decryption)
-signal seq1 : std_logic := '0';-- intermediate signal for outputting data and decrypting 192-bit key 
 
+signal continue : std_logic := '0';-- signal to begin/stop decryption 
+signal key_start : std_logic := '0'; -- signal to specify wheather key are taken in
+signal z : unsigned(63 downto 0);-- signal for computation initialisation 
+constant one : unsigned(63 downto 0):= B"0000000000000000000000000000000000000000000000000000000000000001";-- one represented as 64-bit ;-- 1 represented as 64-bit
+constant c : unsigned(63 downto 0):= x"fffffffffffffffc"; -- constant value for both keys 
+
+-------------------------------------------------------Signals for sequential circuit design
+ 
+signal seq_init : integer := 0;-- variable used to design sequential circuit
+signal seq_dec1: integer := 0; -- intermediate signal used for implementing sequential design(decryption)
+signal seq_dec2 : std_logic := '0';-- intermediate signal for outputting data and decrypting 192-bit key
+signal i : integer := 0; -- signal for taking data in, intermediate signal for sequential circuit
+signal l : integer; -- signal used to implement for loop inside initialisation 
+
+--------------------------------------------------------------Signals for decryption-----------------
 type t_data_in is array (0 to 1) of unsigned(63 downto 0);
 signal data_input : t_data_in; -- data to be encrypted 
-signal data32_1: unsigned(31 downto 0);
+signal data32_1: unsigned(31 downto 0);-- data in 32-bits
 signal data32_2: unsigned(31 downto 0);
 signal data32_3: unsigned(31 downto 0);
 signal data32_4: unsigned(31 downto 0);
-
-signal i : integer := 0; -- signal for taking data in, intermediate signal for sequential circuit
-signal l : integer; 
 signal data_check : std_logic := '0'; -- signal to prevent starting the encryption/decryption too early 
-----------------------------------------------------------------------------------------------
-signal seq3 : integer := 0;-- variable used to design sequential circuit 
-signal c : unsigned(63 downto 0);
-signal continue : std_logic := '0';
-signal key_start : std_logic := '0';
-signal z : unsigned(63 downto 0);
-signal one : unsigned(63 downto 0);-- 1 represented as 64-bit
-signal x : unsigned(63 downto 0);
-signal y : unsigned(63 downto 0);
+signal x : unsigned(63 downto 0);-- decrypted data 1
+signal y : unsigned(63 downto 0);-- decrypted data2
 -----------------------------------------------------------------------------------------------
 --------------------------------------------------------FUNCITONS------------------------------
 function ROR_64(x : in unsigned(63 downto 0); n : in integer)-- Rotate Right circular shift 32 bits
@@ -155,13 +158,13 @@ end process read_proc;
 
 --------------------------------------------------SIMON ALGORITHM---------------------------------
 
+-- purpose: store 32-bit keys as an array of 64-bit key
+-- type   : sequential with a synchronous reset 
+-- inputs : clock and key_valid signal 
+-- outputs: key_64bit and key_start
 key_in:	process(clk,key_valid) is --  process to take in key and store in an array  
-	--	variable j: integer := 0;-- this variable is used instead to implement a sequential design, 
-	--	variable sub_key_first : unsigned(31 downto 0);
-	--	variable sub_key_second : unsigned(31 downto 0);
-	begin
+		begin
 	
-		
 		if (rising_edge(clk)) then -- only begin if key_valid = '1'
 			
 			if (reset_n = '1') then 
@@ -170,92 +173,91 @@ key_in:	process(clk,key_valid) is --  process to take in key and store in an arr
 						key_64bit(0) <= key32_2 & key32_1;
 						key_64bit(1) <= key32_4 & key32_3;
 						key_64bit(2) <= key32_6 & key32_5;
-						key_start <= '1';
+						key_start <= '1'; -- now begin initialisation 
 						
 				end if; -- close if statement for key_valid 	
 			
 			elsif reset_n = '0' then 
 				
-			--	sub_key_first := (others=>'0');
-			--	sub_key_second := (others => '0');
-			key_64bit(0) <= (others=> '0');
-			key_64bit(1) <= (others=> '0');
-			key_64bit(2) <= (others=> '0');
-		--	j := 0; -- reset 
-			key_start <= '0';-- do this to prevent initialisation 
+				key_64bit(0) <= (others=> '0');
+				key_64bit(1) <= (others=> '0');
+				key_64bit(2) <= (others=> '0');
+				key_start <= '0';-- do this to prevent initialisation 
 			
 			end if; -- close if statement for reset_n 
 		
 		end if;-- close if statement for rising_edge clock 
 end process key_in;
 	
-		
-init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for simon algorithm
-		--variable seq0 : integer := 0;-- variable used to design sequential circuit 
-		--variable c : unsigned(63 downto 0):= x"fffffffffffffffc";
-		--variable subkeys_var : t_subkeys;
-		--variable z : unsigned(63 downto 0);
-		--variable one : unsigned(63 downto 0):= B"0000000000000000000000000000000000000000000000000000000000000001";-- 1 represented as 64-bit 	
+
+-- purpose: intialise and generate subkeys for decryption 
+-- type   : sequential with a synchronous reset 
+-- inputs : clock, reset_n, key_valid, key_64bit, key_length , key start  
+-- outputs: subkeys and continue signal 
+init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for simon algorithm	
 	begin 
 	
 			if rising_edge(clk) then -- begin on the rising edge of the clock 
 			
 				if reset_n = '0' then -- reset 	
-				
-					-- reset_n == 0 do not execute  
-					nrSubkeys <= 0;
-					subkeys <= (others=> (others=>'0'));
-					one <= B"0000000000000000000000000000000000000000000000000000000000000001";
-					z <= (others => '0');
-					c <= x"fffffffffffffffc"; -- assign reset value to c 
+					-- reset_n == 0 do not execute 
+					subkeys <= (others=> (others=>'0')); -- subkeys is now reset 
+					z <= (others => '0');-- value of z is assigned depending on the key length 	
+					
+					nrSubkeys <= 0; -- reset the nrSubkeys as well 
 					continue <= '0';
-					seq3 <= 0;
-					l <= 3; -- for 192-bit key_length
+					seq_init <= 0;
+					l <= 3; -- for 192-bit key_length, also used for 128-bit key length 
+					
 					
 				elsif reset_n = '1' then -- only begin if reset is 1  
 					
 					if (key_valid = '0' and key_start= '1') then -- is key_valid = 0 then begin initialisation 
 					
 						if key_length = "00" then  -- key length is 128-bit
-						
-							z <= x"7369f885192c0ef5"; -- assign value to z
-							nrSubkeys <= 68; -- nrsubkeys 
-						
-							subkeys(1) <= key_64bit(0);
-							subkeys(0) <= key_64bit(1);
 								
-							case seq3 is
+							case seq_init is
 							
 								when 0 =>
-									continue <= '0';
-									--	for i in 2 to 66 loop
-									if l < 67 then 
-										subkeys(l) <= (c xor (z and one) xor subkeys(l-2) 
-										xor ROR_64(subkeys(l-1),3) xor ROR_64(subkeys(l-1),4));
+									continue <= '0'; -- make it zero to prevent decryption 
+									
+									z <= x"7369f885192c0ef5"; -- assign value to z
+									nrSubkeys <= 68; -- nrsubkeys 
+									subkeys(1) <= key_64bit(0);
+									subkeys(0) <= key_64bit(1);
+									
+									seq_init <= 1; -- move to the next state
+									
+								when 1=>
+									
+									if ((l-1) < 66) then -- l is 3 therefore -1 to make it 2(for i in 2 to 66 loop) 
+										subkeys(l-1) <= (c xor (z and one) xor subkeys((l-1)-2) 
+										xor ROR_64(subkeys((l-1)-1),3) xor ROR_64(subkeys((l-1)-1),4));
 										z<= shift_right(z,1);
-									--	end loop;
 										l <= l +1;
-									else 
-										seq3 <= 1;
-									end if; -- close if statement for 	
-								when 1 =>
-									subkeys(66) <= (c xor one xor subkeys(64) xor ROR_64(subkeys(65),3) xor ROR_64(subkeys(65),4));
-									seq3 <= 2;
+									else -- for loop is now complemented 
+										subkeys(66) <= (c xor one xor subkeys(64) xor 
+										ROR_64(subkeys(65),3) xor ROR_64(subkeys(65),4));
+										seq_init <= 2; -- move to next state 
+									end if; -- close if statement for "for loop"	
+									
 								when 2 =>
-									subkeys(67) <= (c xor subkeys(65) xor ROR_64(subkeys(66),3) xor ROR_64(subkeys(66),4) );
-									continue <= '1';
-								--	seq0 := 3; 
+								
+									subkeys(67) <= (c xor subkeys(65) xor ROR_64(subkeys(66),3) 
+									xor ROR_64(subkeys(66),4) );
+									continue <= '1'; -- now start decrypting 
+									-- do not move to next state, only go back to state 0 when reset 
 								when others=> null;
 								
-							end case;
+							end case;-- close case statements for seq_init
 									
 									
 						elsif key_length = "01" then -- key length is 192-bit
 							
-							case seq3 is 
+							case seq_init is 
 								when 0=> 
 									
-									continue <= '0';
+									continue <= '0'; -- do not start decrypting 
 									z <= x"fc2ce51207a635db"; -- assign value to z
 									nrSubkeys <= 69; -- nrsubkeys 
 									
@@ -263,28 +265,24 @@ init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for s
 									subkeys(1) <= key_64bit(1);
 									subkeys(2) <= key_64bit(0);
 									
-									seq3 <= 1;
+									seq_init <= 1;
 									
 								when 1=>
-									--for i in 3 to 67 loop 
-									if l < 67 then 
+									
+									if l < 67 then --for i in 3 to 67 loop 
 										subkeys(l) <= (c xor (z and one) xor subkeys(l-3) xor ROR_64(subkeys(l-1),3) 
 										xor ROR_64(subkeys(l-1),4) );
 										z<= shift_right(z,1);
 										l <= l+1;
-									--end loop;
 									else  -- for loop is completed 
-										seq3 <= 2;
-									end if;
+										subkeys(67) <=	(c xor subkeys(64) xor ROR_64(subkeys(66), 3) xor ROR_64(subkeys(66), 4) );
+										seq_init <= 2;
+									end if; -- close if statement for l<67, hardware loop 
 								when 2=>
-									subkeys(67) <=	(c xor subkeys(64) xor ROR_64(subkeys(66), 3) xor ROR_64(subkeys(66), 4) );
-									seq3 <= 3;
-								when 3=>
 									subkeys(68) <= (c xor one xor subkeys(65) xor ROR_64(subkeys(67),3) xor ROR_64(subkeys(67),4) );
-									continue <= '1';-- now start decrypting 
-									
+									continue <= '1';-- now start decrypting
 								when others=> null; -- stop 
-							end case;
+							end case;-- close case statements for seq_init
 							
 						end if;-- close if statement for key_length 
 				
@@ -296,10 +294,11 @@ init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for s
 	
 end process init;
 	
-	
+-- purpose: store encrypted data 64-bit array 
+-- type   : sequential with a synchronous reset 
+-- inputs : clock,reset_n, data_valid 
+-- outputs: data_input signal array 
 data_in : process(clk,i,reset_n,data_valid) is --  process to take in data and store in an array  
-			--variable data1 : unsigned(31 downto 0);
-			--variable data2 : unsigned(31 downto 0);
 		begin 
 		
 			if (rising_edge(clk)) then
@@ -308,7 +307,7 @@ data_in : process(clk,i,reset_n,data_valid) is --  process to take in data and s
 
 					data_input(0) <= data32_2 & data32_1;
 					data_input(1) <= data32_4 & data32_3;
-					data_check <= '1';
+					data_check <= '1';-- now begin decryption 
 								
 				elsif (reset_n = '0') then 
 				
@@ -323,12 +322,13 @@ data_in : process(clk,i,reset_n,data_valid) is --  process to take in data and s
 			
 end process data_in;
 
-
+-- purpose: decrypt data using subkeys and encrypted text  
+-- type   : sequential with synchronous reset 
+-- inputs : clock,reset_n, data_valid,encryption, data_check, continue, subkeys  
+-- outputs: x and y, signal array  
 decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decrypting 
 					variable j : integer := 67; -- for loop starts at 67 for both 128-bit and 192-bit key length 
-					--variable x : unsigned(63 downto 0);
-					--variable y : unsigned(63 downto 0);
-					variable t : unsigned(63 downto 0);
+					variable t : unsigned(63 downto 0); -- variable for intermedate storage 
 				begin
 				
 				if rising_edge(clk) then 
@@ -340,9 +340,9 @@ decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decr
 					t := (others=> '0');
 					j := 67; -- start at 67 
 					
-					seq0 <= 0;
-					seq1 <= '0';
-					data_ready <= '0';
+					seq_dec1 <= 0;-- reset signal to restart decryption 
+					seq_dec2 <= '0';
+					data_ready <= '0'; -- reset data_ready signal
 					
 					elsif reset_n = '1' then 
 					
@@ -353,46 +353,47 @@ decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decr
 							
 								if (j >= 0) then  -- for loop implementation "for (int j=67;j >= 0;j -= 2)"
 								
-									case seq0 is 
-										when 0=>
-											y <= data_input(0) xor f(data_input(1));
-											seq0 <= 1;
+									case seq_dec1 is 
+										when 0=>-------------------------RUN ONLY ONCE{-
+											x <= data_input(0) xor f(data_input(1));
+											seq_dec1 <= 1;
 										when 1=>
-											y <= y xor subkeys(j);
-											seq0 <= 2;
+											x <= x xor subkeys(j);
+											seq_dec1 <= 2;
 										when 2=>
-											x <= data_input(1) xor f(y);
-											seq0 <= 3;
+											y <= data_input(1) xor f(x);
+											seq_dec1 <= 3;
 										when 3=>
-											x <= x xor subkeys(j-1);
-											seq0 <= 4;
-											j := j-2; -- decrement by 2
-										when 4=>
-											y <= y xor f(x) ; -- call f function
-											seq0 <= 5;-- increment 
+											y <= y xor subkeys(j-1);
+											seq_dec1 <= 4;
+											j := j-2; -- decrement by 2-------------}-
+										when 4=>----------------------------FOR LOOP{-
+											x <= x xor f(y) ; -- call f function
+											seq_dec1 <= 5;-- increment 
 										when 5 =>
-											y <= y xor subkeys(j);
-											seq0 <= 6;-- increment 
+											x <= x xor subkeys(j);
+											seq_dec1 <= 6;-- increment 
 										when 6 =>
-											x <= x xor f(y); -- call f function
-											seq0 <= 7;-- increment 
+											y <= y xor f(x); -- call f function
+											seq_dec1 <= 7;-- increment 
 										when 7 =>
-											x <= x xor subkeys(j-1); 
+											y <= y xor subkeys(j-1); 
 											j := j-2; -- decrement by 2 
-											seq0 <= 4;-- increment but ONLY go back to case 4	
+											seq_dec1 <= 4;-- ONLY go back to case 4	
 										when others=> null; -- do nothing 
 									end case;
 									
-								else-- for loop from i=nrSubkeys-1  0 has finished 
+								else-- for loop from i = nrSubkeys-1  0 has finished 
 									
-									if seq1 = '1' then 
-										case seq0 is  
+									if seq_dec2 = '1' then 
+									
+										case seq_dec1 is  
 											when 0=>  -- now transfer the remaining data        
 												data_word_out <= std_logic_vector(x(63 downto 32));
-												seq0 <= 1;   
+												seq_dec1 <= 1;   
 											when 1=>         
 												data_word_out <= std_logic_vector(y(31 downto 0));
-												seq0 <= 2;   
+												seq_dec1 <= 2;   
 											when 2=>         
 												data_word_out <= std_logic_vector(y(63 downto 32));
 												data_ready<= '0';-- now stop and make data_ready <= '0'
@@ -400,11 +401,11 @@ decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decr
 												null;
 										end case;
 										
-									elsif seq1 = '0' then -- for the first run make 
+									elsif seq_dec2 = '0' then -- for the first run make 
 									
-										seq1 <= '1';
-										data_ready <= '1';
-										seq0 <= 0;
+										seq_dec2 <= '1'; --begin the if statement 
+										data_ready <= '1';-- make data_ready 1 
+										seq_dec1 <= 0;-- reset 
 										
 										data_word_out <= std_logic_vector(x(31 downto 0));-- transfer the first 32-bit of data 
 										
@@ -416,63 +417,63 @@ decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decr
 								
 								if (j >= 0) then -- for loop implementation 
 								
-									case seq0 is  
+									case seq_dec1 is  
 										when 0=>--------------------------RUNS ONLY ONCE-{-
 											t := data_input(1); -- t = y
-											seq0 <= 1;
+											seq_dec1 <= 1;
 										when 1=>
 											y <= data_input(0); -- y = x
-											seq0 <= 2;
+											seq_dec1 <= 2;
 										when 2=>
 											x <= t;
-											seq0 <= 3;
+											seq_dec1 <= 3;
 										when 3=>
 											y <= y xor subkeys(68);
-											seq0 <= 4;
+											seq_dec1 <= 4;
 										when 4=>
 											y <= y xor f(x);
-											seq0 <= 5;
+											seq_dec1 <= 5;
 										--------------------------------------------------}-
 										when 5=>------------------------START OF FOR LOOP-{-
 											x <= x xor f(y);
-											seq0 <=6;
+											seq_dec1 <=6;
 										when 6=>
 											x <= x xor subkeys(j);
-											seq0 <= 7;
+											seq_dec1 <= 7;
 										when 7=>
 											y <= y xor f(x);
-											seq0 <= 8;
+											seq_dec1 <= 8;
 										when 8=>
 											y <= y xor subkeys(j-1);
 											j := j-2; -- decrement variable for "for loop"
-											seq0 <= 5; -- GO BACK ONLY TO CASE 5----------}-
+											seq_dec1 <= 5; -- GO BACK ONLY TO CASE 5----------}-
 										
 										when others=> null; -- do nothing
 										
 									end case;
 								else -- now the for loop has ended 
 								
-										if seq1 = '1' then
+										if seq_dec2 = '1' then
 										
-											case seq0 is 
+											case seq_dec1 is 
 												when 0=>  -- output the remaining data to data_word_out        
 													data_word_out <= std_logic_vector(x(63 downto 32));
-													seq0 <= 1;   
+													seq_dec1 <= 1;   
 												when 1=>         
 													data_word_out <= std_logic_vector(y(31 downto 0));
-													seq0 <= 2;   
+													seq_dec1 <= 2;   
 												when 2=>         
 													data_word_out <= std_logic_vector(y(63 downto 32));
-												--	data_ready <= '0'; -- now stop, data_read <= '0'
+												--	data_ready <= '0'; -- now stop, data_ready <= '0'
 												when others=>
 													null;
 											end case;
 										
-										elsif seq1 = '0' then -- once the for loop is finished, output the data 
+										elsif seq_dec2 = '0' then -- once the for loop is finished, output the data 
 										
-											seq1 <= '1';
+											seq_dec2 <= '1';
 											data_ready <= '1';-- data_ready is now 1
-											seq0 <= 0;-- reset this signal back to 0 
+											seq_dec1 <= 0;-- reset this signal back to 0 
 											data_word_out <= std_logic_vector(x(31 downto 0));-- output the first 32-bit 
 											
 										end if;-- close if statement for control_flag2
