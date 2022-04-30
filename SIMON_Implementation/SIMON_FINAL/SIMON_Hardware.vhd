@@ -396,7 +396,7 @@ decryption_begin: process(clk,data_valid,encryption,data_check) is -- begin decr
 												seq_dec1 <= 2;   
 											when 2=>         
 												data_word_out <= std_logic_vector(y(63 downto 32));
-												data_ready<= '0';-- now stop and make data_ready <= '0'
+												--data_ready<= '0';-- now stop and make data_ready <= '0'
 											when others=>
 												null;
 										end case;
