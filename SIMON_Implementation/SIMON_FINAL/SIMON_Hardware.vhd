@@ -159,7 +159,7 @@ end process read_proc;
 --------------------------------------------------SIMON ALGORITHM---------------------------------
 
 -- purpose: store 32-bit keys as an array of 64-bit key
--- type   : sequential with a synchronous reset 
+-- type   : sequential with synchronous reset 
 -- inputs : clock and key_valid signal 
 -- outputs: key_64bit and key_start
 key_in:	process(clk,key_valid) is --  process to take in key and store in an array  
@@ -191,7 +191,7 @@ end process key_in;
 	
 
 -- purpose: intialise and generate subkeys for decryption 
--- type   : sequential with a synchronous reset 
+-- type   : sequential with synchronous reset 
 -- inputs : clock, reset_n, key_valid, key_64bit, key_length , key start  
 -- outputs: subkeys and continue signal 
 init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for simon algorithm	
@@ -295,7 +295,7 @@ init:process(clk,reset_n,key_valid,key_64bit) is -- initialisation process for s
 end process init;
 	
 -- purpose: store encrypted data 64-bit array 
--- type   : sequential with a synchronous reset 
+-- type   : sequential with synchronous reset 
 -- inputs : clock,reset_n, data_valid 
 -- outputs: data_input signal array 
 data_in : process(clk,i,reset_n,data_valid) is --  process to take in data and store in an array  
