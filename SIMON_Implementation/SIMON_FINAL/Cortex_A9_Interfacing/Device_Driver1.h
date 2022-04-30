@@ -1,3 +1,11 @@
+/* Device_Driver.h
+ * Author: STUDENT ID B820928
+ This header file contains the necessary functions for accessing virtual memory 
+ in linux to communication with the FPGA. 
+ */
+
+
+
 #pragma once
 
 #define _GNU_SOURCE

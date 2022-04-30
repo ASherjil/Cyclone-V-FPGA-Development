@@ -1,3 +1,9 @@
+/* Device_Driver1.c
+ * Author: STUDENT ID B820928
+ This source file contains the necessary functions for accessing virtual memory 
+ in linux to communication with the FPGA. Corresponding file for Device_Driver1.h 
+ */
+
 #include "Device_Driver1.h" // include the driver header file 
 
 //---------------------------------------------------LINUX KERNAL FUNCTIONS
