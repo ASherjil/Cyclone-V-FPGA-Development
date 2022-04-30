@@ -179,91 +179,46 @@ void SIMON_decrypt(SimonContext* context, uint64_t* block, uint64_t* out)
 	out[1] = y;
 }
 
-void SIMON_main(void)
-{
-	printf("Simon main function removed.\n");
-}
-
-
-
-
-int main()
-{
-	SimonContext context;
-	int i;
-	uint64_t key[3];
-	uint64_t text[2];
-	uint64_t cipherText[2];
-	uint64_t decryptedText[2] = {0,0};
-
-	// *** 192-bits key test ***
-
-	key[0] = 0x1235484984325688;
-	key[1] = 0xBEEFBEEFBEEFBEEF;
-	key[2] = 0x0123456789ABCDEF;
-
-	// text 6373656420737265 6c6c657661727420
-	text[0] = 0x01234567A5A5A5A5;
-	text[1] = 0x5A5A5A5AFEDCBA98;
-
-
-	SIMON_init(&context, key, 192);// initialise keys for encryption 
-	SIMON_encrypt(&context, text, cipherText);// encrypt data using embedded processor 
-	FPGA_decrypt(key,cipherText,decryptedText); // decrypt data using the FPGA 
-
-	printf("\nSIMON 192-bits key \n\n");
-
-	printf("key: \t\t\t\t");
-	for (i = 0; i < 3; i++)
-	{
-		printf("%016llx ", key[i]);
-	}
-	printf("\n");
-
-	printf("text: \t\t\t\t");
-	for (i = 0; i < 2; i++)
-	{
-		printf("%016llx ", text[i]);
-	}
-	printf("\n");
-
-	printf("encrypted text: \t\t");
-	for (i = 0; i < 2; i++)
-	{
-		printf("%016llx ", cipherText[i]);
-	}
-	printf("\n");
-
-
-	printf("decrypted text: \t\t");
-	for (i = 0; i < 2; i++)
-	{
-		printf("%016llx ", decryptedText[i]);
-	}
-	printf("\n");
-
-
-	return 0;
-}
 
 //-------------------------------------------------FPGA Interfacing----
-int FPGA_decrypt(uint64_t* key,uint64_t* cipherText,uint64_t* decryptedText)
+int FPGA_decrypt(uint64_t* key,uint64_t* cipherText,uint64_t* decryptedText, int keyLen)
 {
 	uint32_t key32[6]; // used for storing 32-bit 
 	uint32_t encrypt_in[4];// used for storing 32-bit encrypted data 
 	uint64_t ext = 0xFFFFFFFF; // 32-bit mask 
 	
-	for (size_t i = 0; i < 6; ++i)// Split up key into 32-bit 
+	
+	if (keyLen == 192)// Split up key into 32-bit depending on keyLen 
 	{
-		if ((i == 0) || (i == 2) || (i == 4))
+	
+		for (size_t i = 0; i < 6; ++i)
 		{
-			key32[i] = (key[i / 2] & ext);
+			if ((i == 0) || (i == 2) || (i == 4))
+			{
+				key32[i] = (key[i / 2] & ext);
+			}
+			else
+			{
+				key32[i] = ((key[i / 2] >> 32) & ext);
+			}
+				printf("32-bit key [%d] is: %x\n",i,key32[i]);
 		}
-		else
+	}
+	else if (keyLen == 128)
+	{
+		
+		for (size_t i = 0; i < 4; ++i)// Split up key into 32-bit 
 		{
-			key32[i] = ((key[i / 2] >> 32) & ext);
+			if ((i == 0) || (i == 2) || (i == 4))
+			{
+				key32[i] = (key[i / 2] & ext);
+			}
+			else
+			{
+				key32[i] = ((key[i / 2] >> 32) & ext);
+			}
+				printf("32-bit key [%d] is: %x\n",i,key32[i]);
 		}
-			printf("32-bit key [%d] is: %x\n",i,key32[i]);
 	}
 
 	for (size_t i = 0; i < 4; ++i) // Split up encrypted data into 32-bit
@@ -299,15 +254,25 @@ int FPGA_decrypt(uint64_t* key,uint64_t* cipherText,uint64_t* decryptedText)
 	*(pData + 3) = 0; // encryption at 0x3 set to 0 = decryption
 
 //----------------------------------------------------------SENDING KEY 
-	*(pData + 0) = 1; // key length set to 1, 192-bit key length 
-
-	*(pData + 5) 	= key32[0]; // key word in # 0
-	*(pData + 0xC)	= key32[1]; // key word in, #1 
-	*(pData + 0xD)  = key32[2]; // #2
-	*(pData + 0xE)  = key32[3];//#3
-	*(pData + 0xF)  = key32[4];//#4
-	*(pData + 0x10) = key32[5];// #5 
-
+	if (keyLen == 192)// only send keys depending on key length 
+	{
+		*(pData + 0) 	= 1; // key length set to b"01" for 192-bit key length   
+		*(pData + 5) 	= key32[0]; // key word in # 0
+		*(pData + 0xC)	= key32[1]; // key word in, #1 
+		*(pData + 0xD)  = key32[2]; // #2
+		*(pData + 0xE)  = key32[3];//#3
+		*(pData + 0xF)  = key32[4];//#4
+		*(pData + 0x10) = key32[5];// #5 
+	}
+	else if (keyLen = 128) 
+	{
+		*(pData + 0) 	= 1; // key length set to b"00" for 128-bit key length   
+		*(pData + 5) 	= key32[0]; // key word in # 0
+		*(pData + 0xC)	= key32[1]; // key word in, #1 
+		*(pData + 0xD)  = key32[2]; // #2
+		*(pData + 0xE)  = key32[3];//#3
+	}
+	
 	*(pData + 1) = 1; // key valid set to 1 
 	*(pData + 1) = 0; // key valid set to 0 
 //------------------------------------------------SENDING ENCRYPTED DATA
@@ -336,54 +301,10 @@ int FPGA_decrypt(uint64_t* key,uint64_t* cipherText,uint64_t* decryptedText)
 	close_physical(fd);
 
 	return 1; // return a random number to satify the syntax 
-}	
-
-
-
-//---------------------------------------------------LINUX KERNAL FUNCTIONS
-
-/* Open /dev/mem to give access to physical addresses */
-int open_physical(int fd)
-{
-	if (fd == -1) // check if already open
-		if ((fd = open("/dev/mem", (O_RDWR | O_SYNC))) == -1)
-		{
-			printf("ERROR: could not open \"/dev/mem\"...\n");
-			return (-1);
-		}
-	return fd;
 }
 
-/* Close /dev/mem to give access to physical addresses */
-void close_physical(int fd)
-{
-	close(fd);
-}
 
-/* Establish a virtual address mapping for the physical addresses starting
- * at base and extending by span bytes */
-void* map_physical(int fd, unsigned int base, unsigned int span)
-{
-	void* virtual_base;
-	// Get a mapping from physical addresses to virtual addresses
-	virtual_base = mmap(NULL, span, (PROT_READ | PROT_WRITE), MAP_SHARED,
-		fd, base);
-	if (virtual_base == MAP_FAILED)
-	{
-		printf("ERROR: mmap() failed...\n");
-		close(fd);
-		return (NULL);
-	}
-	return virtual_base;
-}
 
-/* Close the previously-opened virtual address mapping */
-int unmap_physical(void* virtual_base, unsigned int span)
-{
-	if (munmap(virtual_base, span) != 0)
-	{
-		printf("ERROR: munmap() failed...\n");
-		return (-1);
-	}
-	return 0;
-}
+
+
+
