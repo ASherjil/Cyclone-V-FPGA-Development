@@ -15,6 +15,8 @@
  */
 #include "SIMON.h"
 
+
+
 // Rotate Left circular shift 32 bits
 static uint64_t ROL_64(uint64_t x, uint32_t n)
 {
@@ -179,120 +181,35 @@ void SIMON_decrypt(SimonContext* context, uint64_t* block, uint64_t* out)
 
 void SIMON_main(void)
 {
-	printf("deleted function\n");
-
+	printf("Simon main function removed.\n");
 }
 
-int open_physical(int);
-void* map_physical(int, unsigned int, unsigned int);
-void close_physical(int);
-int unmap_physical(void*, unsigned int);
+
+
 
 int main()
 {
 	SimonContext context;
 	int i;
 	uint64_t key[3];
-	uint32_t key32[6];
 	uint64_t text[2];
 	uint64_t cipherText[2];
-	uint32_t encrypt_in[4];
 	uint64_t decryptedText[2] = {0,0};
-
-	uint64_t ext = 0xFFFFFFFF; // 32-bit mask 
 
 	// *** 192-bits key test ***
 
-	// key 0f0e0d0c0b0a0908 0706050403020100
-	key[0] = 0xABCDEF0123456789;
-	key[1] = 0xDEADBEEA99999999;
-	key[2] = 0xCABEFABCDEFABCDE;
+	key[0] = 0x1235484984325688;
+	key[1] = 0xBEEFBEEFBEEFBEEF;
+	key[2] = 0x0123456789ABCDEF;
 
 	// text 6373656420737265 6c6c657661727420
 	text[0] = 0x01234567A5A5A5A5;
 	text[1] = 0x5A5A5A5AFEDCBA98;
 
 
-	SIMON_init(&context, key, 192);
-
-	SIMON_encrypt(&context, text, cipherText);
-
-	for (size_t i = 0; i < 6; ++i)
-	{
-		if ((i == 0) || (i == 2) || (i == 4))
-		{
-			key32[i] = (key[i / 2] & ext);
-		}
-		else
-		{
-			key32[i] = ((key[i / 2] >> 32) & ext);
-		}
-			printf("32-bit key [%d] is: %x\n",i,key32[i]);
-	}
-
-	for (size_t i = 0; i < 4; ++i)
-	{
-		if ((i == 0) || (i == 2) || (i == 4))
-		{
-			encrypt_in[i] = (cipherText[i / 2] & ext);
-		}
-		else
-		{
-			encrypt_in[i] = ((cipherText[i / 2] >> 32) & ext);
-		}
-			printf("32-bit Encrypted Dat: [%d] is: %x\n",i,encrypt_in[i]);
-	}
-
-	volatile uint32_t* pData;
-	int fd = -1;
-	void* LW_virtual;
-
-	if ((fd = open_physical(fd)) == -1)
-		return -1;
-	if (!(LW_virtual = map_physical(fd, LW_BRIDGE_BASE, LW_BRIDGE_SPAN)))
-		return -1;
-
-	pData = (uint32_t*)(LW_virtual + COUNT_BASE); // use base address of 0x0
-
-	*(pData + 0xB) = 0; // reset first
-	*(pData + 0xB) = 1;// now start program, reset_n set to 1
-
-	printf("Data_ready signal is: %d\n",*(pData+6));
-	
-
-	*(pData + 3) = 0; // encryption at 0x3 set to 0 = decryption
-
-//----------------------------------------------------------SENDING KEY 
-	*(pData + 0) = 1; // key length set to 1, 192-bit key length 
-
-	*(pData + 5) 	= key32[0]; // key word in # 0
-	*(pData + 0xC)	= key32[1]; // key word in, #1 
-	*(pData + 0xD)  = key32[2]; // #2
-	*(pData + 0xE)  = key32[3];//#3
-	*(pData + 0xF)  = key32[4];//#4
-	*(pData + 0x10) = key32[5];// #5 
-
-	*(pData + 1) = 1; // key valid set to 1 
-	*(pData + 1) = 0; // key valid set to 0 
-//------------------------------------------------SENDING ENCRYPTED DATA
-
-	*(pData + 4) 	= encrypt_in[0]; // data word in 
-	*(pData + 0x11) = encrypt_in[1]; // data word in 
-	*(pData + 0x12) = encrypt_in[2]; // data word in 
-	*(pData + 0x13) = encrypt_in[3]; // data word in
-
-	*(pData + 2) = 1; // data_valid set 1 
-	*(pData + 2) = 0; // data_valid set 0
-//-----------------------------------------------------------------------
-
-	while( ! ( (*(pData+6))& 0x1 )   ){}// wait until avs_s0_readdata(0) = '1'; -- wait until data_ready = '1'
-
-	decryptedText[0] = *(pData + 7);
-	decryptedText[0] |= ( ((uint64_t)(*(pData + 8))) << 32 );// shift the data then OR, to pack
-	// inside the 64-bit integer
-	decryptedText[1] = *(pData + 9);
-	decryptedText[1] |= ( ((uint64_t)(*(pData + 0xA))) << 32 );// shift the data then OR, to pack
-	// inside the 64-bit integer
+	SIMON_init(&context, key, 192);// initialise keys for encryption 
+	SIMON_encrypt(&context, text, cipherText);// encrypt data using embedded processor 
+	FPGA_decrypt(key,cipherText,decryptedText); // decrypt data using the FPGA 
 
 	printf("\nSIMON 192-bits key \n\n");
 
@@ -325,14 +242,101 @@ int main()
 	}
 	printf("\n");
 
-	printf("Data_ready signal is: %d\n",*(pData+6));
 
-	unmap_physical(LW_virtual, LW_BRIDGE_SPAN);
-	close_physical(fd);
 	return 0;
 }
 
+//-------------------------------------------------FPGA Interfacing----
+int FPGA_decrypt(uint64_t* key,uint64_t* cipherText,uint64_t* decryptedText)
+{
+	uint32_t key32[6]; // used for storing 32-bit 
+	uint32_t encrypt_in[4];// used for storing 32-bit encrypted data 
+	uint64_t ext = 0xFFFFFFFF; // 32-bit mask 
+	
+	for (size_t i = 0; i < 6; ++i)// Split up key into 32-bit 
+	{
+		if ((i == 0) || (i == 2) || (i == 4))
+		{
+			key32[i] = (key[i / 2] & ext);
+		}
+		else
+		{
+			key32[i] = ((key[i / 2] >> 32) & ext);
+		}
+			printf("32-bit key [%d] is: %x\n",i,key32[i]);
+	}
 
+	for (size_t i = 0; i < 4; ++i) // Split up encrypted data into 32-bit
+	{
+		if ((i == 0) || (i == 2) || (i == 4))
+		{
+			encrypt_in[i] = (cipherText[i / 2] & ext);
+		}
+		else
+		{
+			encrypt_in[i] = ((cipherText[i / 2] >> 32) & ext);
+		}
+			printf("32-bit Encrypted Dat: [%d] is: %x\n",i,encrypt_in[i]);
+	}
+	
+	volatile uint32_t* pData;
+	int fd = -1;
+	void* LW_virtual;
+
+	if ((fd = open_physical(fd)) == -1)
+		return -1;
+	if (!(LW_virtual = map_physical(fd, LW_BRIDGE_BASE, LW_BRIDGE_SPAN)))
+		return -1;
+
+	pData = (uint32_t*)(LW_virtual + COUNT_BASE); // use base address of 0x0
+
+	*(pData + 0xB) = 0; // reset first
+	*(pData + 0xB) = 1;// now start program, reset_n set to 1
+
+	printf("Data_ready signal is: %d\n",*(pData+6)); // data_ready should be 0 here 
+	
+
+	*(pData + 3) = 0; // encryption at 0x3 set to 0 = decryption
+
+//----------------------------------------------------------SENDING KEY 
+	*(pData + 0) = 1; // key length set to 1, 192-bit key length 
+
+	*(pData + 5) 	= key32[0]; // key word in # 0
+	*(pData + 0xC)	= key32[1]; // key word in, #1 
+	*(pData + 0xD)  = key32[2]; // #2
+	*(pData + 0xE)  = key32[3];//#3
+	*(pData + 0xF)  = key32[4];//#4
+	*(pData + 0x10) = key32[5];// #5 
+
+	*(pData + 1) = 1; // key valid set to 1 
+	*(pData + 1) = 0; // key valid set to 0 
+//------------------------------------------------SENDING ENCRYPTED DATA
+	*(pData + 4) 	= encrypt_in[0]; // data word in 
+	*(pData + 0x11) = encrypt_in[1]; // data word in 
+	*(pData + 0x12) = encrypt_in[2]; // data word in 
+	*(pData + 0x13) = encrypt_in[3]; // data word in
+
+	*(pData + 2) = 1; // data_valid set 1 
+	*(pData + 2) = 0; // data_valid set 0
+//-----------------------------------------------------------------------
+
+	while( ! ( (*(pData+6))& 0x1 )   ){}// wait until avs_s0_readdata(0) = '1'; -- wait until data_ready = '1'
+
+	decryptedText[0] = *(pData + 7);// store first set of 32-bit decrypted data
+	decryptedText[0] |= ( ((uint64_t)(*(pData + 8))) << 32 );// shift the data then OR, to pack
+	// inside the 64-bit integer
+	decryptedText[1] = *(pData + 9); // store the third set of 32-bit of decrypted data 
+	decryptedText[1] |= ( ((uint64_t)(*(pData + 0xA))) << 32 );// shift the data then OR, to pack
+	// inside the 64-bit integer
+
+	printf("Data_ready signal is: %d\n",*(pData+6));// data_ready signal should be 1 here 
+
+	
+	unmap_physical(LW_virtual, LW_BRIDGE_SPAN);
+	close_physical(fd);
+
+	return 1; // return a random number to satify the syntax 
+}	
 
 
 
@@ -383,4 +387,3 @@ int unmap_physical(void* virtual_base, unsigned int span)
 	}
 	return 0;
 }
-
