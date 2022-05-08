@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 
-entity SIMON_Init is -- all these signals are required to validate the testbench provided 
+entity SIMON_top is -- all these signals are required to validate the testbench provided 
 port
 (	
 	clk              : in  std_logic;
@@ -19,9 +19,8 @@ port
 
 end entity; 
 
-architecture rtl of SIMON_Init is
-
---------------------------------------Intermediate signals and arrays--------------------------- 
+architecture rtl of SIMON_top is
+--------------------------------------SIGNALS FOR KEYS INITIALISATION-------------------------
 signal nrSubkeys : integer;
 type t_subkeys is array(0 to 68) of unsigned(63 downto 0);	
 signal subkeys : t_subkeys;
@@ -32,12 +31,15 @@ constant one : unsigned(63 downto 0):= B"000000000000000000000000000000000000000
 constant c : unsigned(63 downto 0):= x"fffffffffffffffc"; -- constant value for both keys 
 signal key_start : std_logic := '0';
 
+--------------------------------------SIGNALS FOR SEQUENTIAL PROCESSES 
+
 signal seq1 : integer := 0; -- intermediate signal used for implementing sequential design(encryption)
 signal seq2: integer := 0; -- intermediate signal used for implementing sequential design(decryption)
-signal key_seq : integer := 0;
+signal key_seq : integer := 0; -- signal for storing key in 64-bit signal array 
 signal control_flag1 : std_logic := '0'; -- intermediate flag for outputting data and encrypting 192-bit key 
 signal control_flag2 : std_logic := '0';-- intermediate flag for outputting data and decrypting 192-bit key 
 
+-----------------------------------------SIGNALS FOR DATA STORAGE AND ENCRYPTION/DECRYPTION 
 type t_data_in is array (0 to 1) of unsigned(63 downto 0);
 signal data_input : t_data_in; -- data to be encrypted 
 signal i : integer := 0; -- signal for taking data in, intermediate signal for sequential circuit 
@@ -46,6 +48,7 @@ signal data_flag1 : std_logic := '0'; -- signal for MUX, data_ready for encrypti
 signal data_flag2 : std_logic := '0';-- signal for MUX, data_ready for decryption
 signal data_out1 : unsigned(31 downto 0); -- signal for MUX, data_word_out for encryption
 signal data_out2 : unsigned(31 downto 0);-- signal for MUX, data_word_out for decryption 
+
 --------------------------------------------------------FUNCITONS------------------------------
 
 function ROR_64(x : in unsigned(63 downto 0); n : in integer)-- Rotate RIGHT circular shift 32 bits
@@ -462,7 +465,7 @@ end process encryption_begin;
 
 
 decryption_begin: process(all) is -- begin decrypting 
-variable k : integer := 0; -- for loop starts at 67 for both 128-bit and 192-bit key length 
+variable k : integer := 0; -- variable for while loop 
 variable x : unsigned(63 downto 0);
 variable y : unsigned(63 downto 0);
 variable t : unsigned(63 downto 0);
@@ -522,7 +525,7 @@ variable int_y : t_subkeys;
 										when 5=>         
 											data_out2 <= y(31 downto 0);
 											seq2 <= 6; 
-										when 7=>
+										when 6=>
 											data_out2 <= y(63 downto 32);
 											data_flag2 <= '0'; -- now stop, data_ready <= '0'
 											
