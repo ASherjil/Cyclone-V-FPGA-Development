@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 
-entity SIMON_Encrypt is -- all these signals are required to validate the testbench provided 
+entity SIMON_Decrypt is -- all these signals are required to validate the testbench provided 
 port
 (	
 	encryption  : in std_logic;
@@ -17,7 +17,7 @@ port
 
 end entity; 
 
-architecture rtl of SIMON_Encrypt is
+architecture rtl of SIMON_Decrypt is
 -----------------------------------------------------------FUNCTIONS-------------------
 function ROL_64(x : in unsigned(63 downto 0); n : in integer)-- Rotate LEFT circular shift 32 bits
 	return unsigned is variable shifted : unsigned(63 downto 0);
@@ -33,21 +33,22 @@ begin
 		return unsigned(rolled);
 end function;
 -------------------------------------------------------------------------------------------
-signal y_int : unsigned(63 downto 0); -- intermediate signal for storing y value
+signal x_int : unsigned(63 downto 0); -- intermediate signal for storing x value
 
 begin
 
 process(all) is 
 begin 
 
-	if (encryption = '1') then 
-		y_int <= (y_in xor f(x_in)) xor subkey_in1; -- compute y
-		y_out <= y_int; -- assign output signal to y_int
-		x_out <= (x_in xor f(y_int)) xor subkey_in2;-- compute x
+	if (encryption = '0') then 
+		x_int <= (x_in xor f(y_in)) xor subkey_in1; -- compute y
+		x_out <= x_int; -- assign output signal to y_int
+		y_out <= (y_in xor f(x_int)) xor subkey_in2;-- compute x
 	else
 		y_out <= (others=> '0');
 		x_out <= (others=> '0');
+		
 	end if;
 end process; 
-		
+			
 end architecture;

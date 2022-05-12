@@ -14,7 +14,7 @@ end entity;
 -- Architecture
 --------------------------------------
 architecture sim of keys_init_tb is
--- Clock definition
+  -- Clock definition
   constant clk_period : time := 20 ns;
 
   -- Input signals
@@ -35,9 +35,8 @@ architecture sim of keys_init_tb is
 begin
   clk <= not clk after clk_period/2;
 
-  DUT: entity work.SIMON_top1
-  port map
-    (
+  DUT: entity work.simon_top1
+  port map(
     clk           => clk,
     reset_n       => reset_n,
     encryption    => encryption,
@@ -52,25 +51,23 @@ begin
 
   STIM: process
   begin
-  
     reset_n      <= '0';
-    wait for 4*clk_period; -- 20 ns * 4 = 80 ns
+    wait for 4*clk_period;
     encryption   <= '1';  -- Set to Encryption 
     key_length   <= "00"; -- Set "00" to 128 bit, "01" to 192 bit, "10" to 256 bit
     reset_n      <= '1';
-    wait for clk_period; -- 20 ns 
+    wait for clk_period;
     key_valid    <= '1';
-    key_word_in  <= x"DEADBEEF";  -- 1, "Dead beef HAHA"
+    key_word_in  <= x"DEADBEEF";
     wait for clk_period;
-    key_word_in  <= x"01234567"; -- 2
+    key_word_in  <= x"01234567";
     wait for clk_period;
-    key_word_in  <= x"89ABCDEF"; -- 3
+    key_word_in  <= x"89ABCDEF";
     wait for clk_period;
-    key_word_in  <= x"DEADBEEF"; -- 4
+    key_word_in  <= x"DEADBEEF";
     wait for clk_period;
     key_valid    <= '0';
-    key_word_in  <= x"00000000";-- {key_word_in}
-	wait for clk_period;
+    key_word_in  <= x"00000000";
     data_valid   <= '1';
     data_word_in <= x"A5A5A5A5";
     wait for clk_period;
@@ -91,10 +88,46 @@ begin
     data_bkp(63 downto 32)  <= data_word_out;
     wait for clk_period;
     data_bkp(31 downto 0)   <= data_word_out;
-	
-	
+    -----------------------------------------------------------------
+    wait for 4*clk_period;
+    reset_n      <= '0';
+    wait for clk_period;
+    encryption   <= '0';  -- Set to Decryption 
+    key_length   <= "00"; -- Set "00" to 128 bit, "01" to 192 bit, "10" to 256 bit
+    reset_n      <= '1';
+    wait for clk_period;
+    key_valid    <= '1';
+    key_word_in  <= x"DEADBEEF";
+    wait for clk_period;
+    key_word_in  <= x"01234567";
+    wait for clk_period;
+    key_word_in  <= x"89ABCDEF";
+    wait for clk_period;
+    key_word_in  <= x"DEADBEEF";
+    wait for clk_period;
+    key_valid    <= '0';
+    key_word_in  <= x"00000000";
+    data_valid   <= '1';
+    data_word_in <= data_bkp(127 downto 96);
+    wait for clk_period;
+    data_word_in <= data_bkp(95 downto 64);
+    wait for clk_period;
+    data_word_in <= data_bkp(63 downto 32);
+    wait for clk_period;
+    data_word_in <= data_bkp(31 downto 0);
+    wait for clk_period;
+    data_valid   <= '0';
+    data_word_in <= x"00000000";
+    wait until data_ready = '1';
+    wait for clk_period;
+    data_bkp(127 downto 96) <= data_word_out;
+    wait for clk_period;
+    data_bkp(95 downto 64)  <= data_word_out;
+    wait for clk_period;
+    data_bkp(63 downto 32)  <= data_word_out;
+    wait for clk_period;
+    data_bkp(31 downto 0)   <= data_word_out;
     wait;
-
   end process;
 
 end architecture;
