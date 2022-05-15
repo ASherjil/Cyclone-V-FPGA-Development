@@ -1,7 +1,6 @@
 -- This is the SIMON VHDL implementation that is optimised for speed and performance
 -- It performs initialisation + decryption in 0 clock cycles 
 -- This works for 192-bit key length 
-
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -59,18 +58,24 @@ subkeys(0) <= key_64bit(2);-- assign initial values
 subkeys(1) <= key_64bit(1);-- assign initial values 
 subkeys(2) <= key_64bit(0);-- assign initial values 
 
-generator1 : for i in 0 to 64 generate 
+generator1 : for i in 0 to 31 generate 
 
 generate_keys : entity work.SIMON_keys_192 port map-- begin generator 1
 (
-	key_in_1  => subkeys(i),
-	key_in_2  => subkeys(i+2),
+	key_in_1  => subkeys(i*2),--  i=0
+	key_in_2  => subkeys((i*2)+1),-- i*2+1
+	key_in_3  => subkeys((i*2)+2),-- i*2 +2
 	z_in 	  => zs(i),
-	key_out   => subkeys(i+3),
+	key_out1  => subkeys((i*2)+3), 
+	key_out2  => subkeys((i*2)+4), -- max-index = 31*2 +4 = 66
 	z_out     => zs(i+1)
 );
 
 end generate generator1;
+
+subkeys(67) <= (c xor (one and zs(32)) xor subkeys(64) xor -- generate the remeaning keys  
+				ROR_64(subkeys(66),3) 
+				xor ROR_64(subkeys(66),4) );
 
 subkeys(68) <= (c xor one xor subkeys(65) xor -- generate the last key 
 				ROR_64(subkeys(67),3) 
