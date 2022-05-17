@@ -78,7 +78,7 @@ void Simon_EncDec(SimonContext*,uint64_t*,uint64_t*,uint64_t*,uint64_t*,int,size
 	Arguments: pointer to char(char array = C-style string), int(size of the array).
 	Return values: void
 */
-void packer(char*, int l);
+void packer(const char*, int l);
 
 
 /*
@@ -89,3 +89,34 @@ void packer(char*, int l);
 	Return values: void
 */
 void SIMON_main(void);
+
+
+/*
+	Function : inputString
+	Purpose : This function is used to take a string from the user of an
+	unknown length 
+	Arguments: pointer to FILE struct, size_t initial length of string 
+	Return values: pointer to the first element of string 
+*/
+char* inputString(FILE*, size_t);
+
+/*
+	Function : fibon_begin
+	Purpose : This function generates fibonacci numbers upto a limit 
+	specified by the user, then encrypts/ decrypts them. 
+	Arguments: pointer to FILE struct, size_t initial length of string
+	Return values: none
+*/
+void fibon_begin();
+
+
+/*
+	Function : fibon_EncDec
+	Purpose : This is a helper function for fibon_begin()
+	it encrypts and decrypts fibocci numbers
+	Arguments: pointer to fibonacci array,
+	pointer to keys array, limit of fiboacci numbers,
+	length of keys(128 or 192)
+	Return values: none
+*/
+void fibon_EncDec(uint64_t*,uint64_t*, int,int);

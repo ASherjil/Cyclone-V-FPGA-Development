@@ -14,7 +14,7 @@
  *		- https://github.com/nsacyber/simon-speck-supercop/blob/master/crypto_stream/simon128128ctr/ref/stream.c
  *
  */
-
+#pragma warning(disable : 4996) // disable warning about scanf_s
 #include "SIMON.h"
 
 // Rotate Left circular shift 32 bits
@@ -192,6 +192,8 @@ void SIMON_decrypt(SimonContext* context, uint64_t* block, uint64_t* out)
 	out[0] = x;
 	out[1] = y;
 }
+
+
 
 void SIMON_main(void) // main function that came with sample code(NOT USED)
 {
@@ -401,7 +403,6 @@ void Simon_EncDec(SimonContext* context,uint64_t* text, uint64_t* unpacked_decry
 	unpacked_encrypted[i + 1] = cipherText[1];// accumulate the encrypted text
 
 	SIMON_decrypt(context, cipherText, decryptedText);
-
 	unpacked_decrypted[i] = decryptedText[0];
 	unpacked_decrypted[i + 1] = decryptedText[1];// accumulate the decrypted text
 
@@ -512,6 +513,7 @@ void Simon_begin(int size, uint64_t* packet, uint64_t* key, int key_length)
 			unpacked_encrypted[i + 1] = cipherText[1];
 
 			SIMON_decrypt(&context, cipherText, decryptedText);
+			
 
 			unpacked_decrypted[i] = decryptedText[0];
 			unpacked_decrypted[i + 1] = decryptedText[1];
@@ -619,7 +621,7 @@ void Simon_begin(int size, uint64_t* packet, uint64_t* key, int key_length)
 	next set of chars. Once packed, the 64-bit integers are encrypted and 
 	decrypted using the Simon algorithm. 
 */
-void packer(char* string, int length)
+void packer(const char* string, int length)
 {
 	int size = (length % 8) ? ((length / 8) + 1) : (length / 8); // size of array required 
 
@@ -694,3 +696,172 @@ void unpacker(int size, uint64_t* packet)
 	printf("Unpacked data:\t\t\t'%s'\n\n", unpacked); // print the unpacked integer 
 	free(unpacked); // release dynamically allocated memory
 }
+
+
+/*
+	Function : inputString
+	Purpose : This function is used to take a string from the user of an
+	unknown length
+	Arguments: pointer to FILE struct, size_t initial length of string
+	Return values: pointer to the first element of string
+*/
+char* inputString(FILE* fp, size_t size) {
+	//The size is extended by the input with the value of the provisional
+	char* str;
+	int ch;
+	size_t len = 0;
+	str = realloc(NULL, sizeof(*str) * size);//size is start size
+	if (!str)return str;
+	while (EOF != (ch = fgetc(fp)) && ch != '*') {
+		str[len++] = ch;
+		if (len == size) {
+			str = realloc(str, sizeof(*str) * (size += 16));
+			if (!str)return str;
+		}
+	}
+	str[len++] = '\0';
+
+	return realloc(str, sizeof(*str) * len);
+}
+
+/*
+	Function : fibon_begin
+	Purpose : This function generates fibonacci numbers upto a limit
+	specified by the user, then encrypts/ decrypts them.
+	Arguments: none 
+	Return values: none
+*/
+void fibon_begin()
+{
+	int limit = 0;
+
+	printf("Please enter limit of fibonacci sequence(must be greater than 2).\n");
+	scanf("%d", &limit);
+
+	uint64_t* fibonacci = calloc(limit, sizeof(*fibonacci));// allocate array 
+
+	fibonacci[0] = 0;
+	fibonacci[1] = 1; // first 2 terms of fibonacci sequence 
+
+	for (size_t i = 2; i < limit; ++i) // only generate until the limit 
+	{
+		fibonacci[i] = fibonacci[i - 1] + fibonacci[i - 2];// generate fibonacci 
+	}
+
+	size_t perline = 0;// counter to store perline data 
+	printf("Fibonacci sequence is shown below:\n");
+	for (size_t i = 0; i < limit; ++i)
+	{
+		if (perline == 5)// print only 5 per line
+		{
+			printf("\n");
+			perline = 0;//reset 
+		}
+		printf("{'%lld'}", fibonacci[i]);
+		++perline; // increase perline variable 
+	}
+
+	uint64_t key[3]; // set keys 
+	key[0] = 0x1716151413121110;
+	key[1] = 0x0f0e0d0c0b0a0908;
+	key[2] = 0x0706050403020100;
+
+	fibon_EncDec(fibonacci,key, limit, 128); // encrypt/decrypt using 128-bit keys
+	fibon_EncDec(fibonacci,key, limit, 192);// encrypt/decrypt using 192-bit keys
+
+	free(fibonacci); // free the fibonacci array 
+}
+
+/*
+	Function : fibon_EncDec
+	Purpose : This is a helper function for fibon_begin()
+	it encrypts and decrypts fibocci numbers
+	Arguments: pointer to fibonacci array,
+	pointer to keys array, limit of fiboacci numbers,
+	length of keys(128 or 192)
+	Return values: none
+*/
+void fibon_EncDec(uint64_t* fibonacci,uint64_t* key, int limit,int key_length)
+{
+	uint64_t* encrypted = calloc(limit+1, sizeof(*encrypted));// allocate array for encrypted
+	uint64_t* decrypted = calloc(limit+1, sizeof(*encrypted));// allocate array for decrypted 
+
+	SimonContext context;
+	SIMON_init(&context, key, key_length); // begin generating keys 
+
+	uint64_t text[2] = { 0,0 }; // data to be encrypted
+	uint64_t cipherText[2];
+	uint64_t decryptedText[2]; // store 2 of encrypted/decrypted text 
+
+	if ((limit % 2) == 0)// if the fibanocci limit is a multiple of 2
+	{
+		for (size_t i = 0; i < limit; i += 2)
+		{
+			text[0] = fibonacci[i];
+			text[1] = fibonacci[i+1];
+
+			SIMON_encrypt(&context, text, cipherText);// encrypt data
+			encrypted[i] = cipherText[0];
+			encrypted[i + 1] = cipherText[1]; // store the encrypted data in array 
+
+
+			SIMON_decrypt(&context, cipherText, decryptedText);// decrypt data
+			decrypted[i] = decryptedText[0];
+			decrypted[i + 1] = decryptedText[1];// store the decrypted data in array
+		}
+	}
+	else if (limit % 2)// if the limit is not a multiple of 2
+	{
+		for (size_t i = 0; i < limit; i += 2)
+		{
+			text[0] = fibonacci[i];
+			text[1] = fibonacci[i + 1];
+
+			SIMON_encrypt(&context, text, cipherText);// encrypt data
+			encrypted[i] = cipherText[0];
+			encrypted[i + 1] = cipherText[1]; // store the encrypted data in array 
+
+
+			SIMON_decrypt(&context, cipherText, decryptedText);// decrypt data
+			decrypted[i] = decryptedText[0];
+			decrypted[i + 1] = decryptedText[1];// store the decrypted data in array
+
+			if (i + 2 == limit)// reached the last remaining number
+			{
+				text[0] = fibonacci[i+2]; // assign last value of array 
+				text[1] = 0; // make it zero 
+
+				SIMON_encrypt(&context, text, cipherText);
+				encrypted[i + 2] = cipherText[0];// store the last encrypted fibonacci number
+				SIMON_decrypt(&context, cipherText, decryptedText);
+				decrypted[i + 2] = decryptedText[0];// store the last decrypted fibonacci number
+			}
+		}
+	}
+
+	printf("\n\n%d Fibonacci numbers have been encrypted.\n", limit);
+
+	printf("%d-bit Keys:\n",key_length);
+
+	for (size_t i = 0; i < key_length / 64; ++i) // print the master keys 
+	{
+		printf("%016llx\n", key[i]);
+	}
+
+	printf("\nEncrypted data:\n");// print all the encrypted data
+	for (size_t i = 0; i < limit; ++i) 
+	{
+		printf("\t%016llx\n", encrypted[i]);
+	}
+
+
+	printf("Decrypted data:\n");// print all the decrypted data
+	for (size_t i = 0; i < limit; ++i)
+	{
+		printf("\t%016lld\n", decrypted[i]);
+	}
+
+	free(encrypted);
+	free(decrypted);// free all the dynamically allocated memory to prevent memory leaks 
+}
+
