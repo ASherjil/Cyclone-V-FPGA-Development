@@ -783,8 +783,8 @@ void fibon_begin()
 */
 void fibon_EncDec(uint64_t* fibonacci,uint64_t* key, int limit,int key_length)
 {
-	uint64_t* encrypted = calloc(limit, sizeof(*encrypted));// allocate array for encrypted
-	uint64_t* decrypted = calloc(limit, sizeof(*encrypted));// allocate array for decrypted 
+	uint64_t* encrypted = calloc(limit+1, sizeof(*encrypted));// allocate array for encrypted
+	uint64_t* decrypted = calloc(limit+1, sizeof(*encrypted));// allocate array for decrypted 
 
 	SimonContext context;
 	SIMON_init(&context, key, key_length); // begin generating keys 
