@@ -23,3 +23,21 @@ The HPS boots embedded Linux from the microSD card. A running example of the app
 
 Step 1: It is recommeneded to run embedded linux over RTOS or baremetal for this project. Linux image needs to be mounted on a microSD card. An in depth guide can be found here:
 
+https://ftp.intel.com/Public/Pub/fpgaup/pub/Intel_Material/17.0/Tutorials/Linux_On_DE_Series_Boards.pdf
+
+Step 2: Download and install Intel Quartus Prime(any edition). Then open the golden hardware reference design(GHRD) and follow the steps provided in the pdf file. 
+The files for GHRD and pdf instructions are password protected. The password can be found in the "Installation_Instructions" folder. 
+
+Step 3: Synthesize the VHDL component and use the programmer to upload the bitstream to the FPGA. 
+
+Step 4: Run the "main.c" file in the Software Interface Folder of the perticular solution. The folder also contains "COMPILE_ME.txt" file which contains the linux terminial commands for quick compilation and run. 
+
+Find files "Hardware_Tested_Versions" -> Software Interface
+
+Step 5: Enjoy!
+
+# Other Interesting Project I worked on 
+
+Another major embedded project I worked on can be found in the link below. In this case, I developed digital PID controllers using the Arduino Mega. The software was designed in an object-oriented manner in C++:
+
+https://github.com/lboroWMEME-TeamProject/Motor-controller-development
