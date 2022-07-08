@@ -1,0 +1,8 @@
+Please copy and paste the commands into the linux terminal after 
+the correct directory has been established:
+
+1- Compile and link 
+gcc -std=gnu99 main.c -std=gnu99 Application_Simon1.c -std=gnu99 Application_Simon2.c -std=gnu99 Device_Driver1.c -o simon_run
+
+2- Run
+./simon_run 
