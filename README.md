@@ -17,6 +17,8 @@ The HPS boots embedded Linux from the microSD card. A running example of the app
 ![Software_Application_test1](https://user-images.githubusercontent.com/92602684/178074944-7354f2dc-2668-48cd-863f-c767b398f402.png)
 ![Software_Application_test2](https://user-images.githubusercontent.com/92602684/178074951-4a3a07cc-0175-4223-a829-5588b7852b6e.png)
 
+The full report can be found in the file named "Hybrid Cryptography on the DE1-SoC Report.pdf"
+
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/areebTP/Cyclone-V-FPGA-Development)
 
 # Installation & Usage 
