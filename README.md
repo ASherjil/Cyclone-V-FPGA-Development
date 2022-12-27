@@ -1,6 +1,6 @@
 # Cyclone-V-FPGA-Development
 
-This was a major project which was my coursework in third year Electrical Engineering. I achieved a mark of 88% for this effort.  
+This was a major project which was my coursework in third year Electrical Engineering. I achieved a mark of 86% for this effort.  
 
 In this project, Simon Cipher algorithm is implemented in software and hardware. This was developed for the DE1-SoC. This SoC is composed of a HPS(ARM Cortex A9 800Mhz(dual core)) coupled with Intel/Altera Cyclone V FPGA. 
 
